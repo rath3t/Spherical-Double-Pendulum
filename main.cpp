@@ -6,7 +6,7 @@
 #include <iostream>
 using Matrix32d = Eigen::Matrix<double,3,2>;
 
-const Eigen::Vector3d gravitation = (Eigen::Vector3d() <<0 , 0, -9.81 ).finished();
+const Eigen::Vector3d gravitation = (Eigen::Vector3d() <<0 , 0, -10 ).finished();
 
 struct GeometryAndMaterial
 {
@@ -23,7 +23,7 @@ double kineticEnergy(const Eigen::Vector<double,6>& v,const GeometryAndMaterial&
 
 double potentialEnergy(const Eigen::Vector<double,6>& t,const GeometryAndMaterial& geoMat)
 {
-  return geoMat.pointMasses(0)*geoMat.trussLength(0)* gravitation.dot(t.segment<3>(0))+ geoMat.pointMasses(0)*gravitation.dot(geoMat.trussLength(0)*t.segment<3>(0)+geoMat.trussLength(1)*t.segment<3>(1));
+  return geoMat.pointMasses(0)*geoMat.trussLength(0)* gravitation.dot(t.segment<3>(0))+ geoMat.pointMasses(1)*gravitation.dot(geoMat.trussLength(0)*t.segment<3>(0)+geoMat.trussLength(1)*t.segment<3>(1));
 }
 
 Matrix32d calculateTangentSpace(const Eigen::Vector3d& t)
@@ -97,18 +97,18 @@ Eigen::Matrix<double,6,4> createLargeTangentBase(const Eigen::Vector<double,6>& 
 
 Eigen::Vector<double,6> gradientPotentialEnergy(const GeometryAndMaterial& geoMat)
 {
-  return (Eigen::Vector<double,6>() << (geoMat.pointMasses(0)+geoMat.pointMasses(1))*geoMat.trussLength(0)*gravitation,geoMat.pointMasses(1)*geoMat.trussLength(2)*gravitation).finished();
+  return (Eigen::Vector<double,6>() << (geoMat.pointMasses(0)+geoMat.pointMasses(1))*geoMat.trussLength(0)*gravitation,geoMat.pointMasses(1)*geoMat.trussLength(1)*gravitation).finished();
 }
 
 int main() {
 
 double time =0.0;
-int  timesteps =100;
-double deltat =  0.005;
+int  timesteps =5;
+double deltat =  0.001;
 
 double   endtime =  timesteps*deltat;
 double gamma = 1.5; //Chung Lee time integration
-  double beta = 1.5;
+  double beta = 1;
   double a0 = 0.0; //how much damping
 
   GeometryAndMaterial geoMat;
@@ -123,8 +123,8 @@ double gamma = 1.5; //Chung Lee time integration
   Eigen::Vector<double,6> t;
   t << 1.0,1.0,1.0,     1.0,2.0,8.0;
 
-t.col(0).normalize();
-t.col(1).normalize();
+t.segment<3>(0).normalize();
+t.segment<3>(1).normalize();
 
   Eigen::Vector<double,6> v = Eigen::Vector<double,6>::Zero();
   Eigen::Vector<double,6> a  = Eigen::Vector<double,6>::Zero();
@@ -137,6 +137,7 @@ const Eigen::Matrix<double,6,6> C = a0*M; //Mass propertional damping matrix
 
 while(time<endtime)
 {
+  std::cout<<potentialEnergy(t,geoMat)<< "   "<<kineticEnergy(v,geoMat)<<"    "<<time<< "      "<<potentialEnergy(t,geoMat)+kineticEnergy(v,geoMat)<< '\n';
   const Eigen::Matrix<double,6,4> BLA = createLargeTangentBase(t);
   const Eigen::Matrix4d Mred = BLA.transpose()*M*BLA;
   const Eigen::Vector<double,6> velocityTerm = velocityTerms(t,v,geoMat);
@@ -164,7 +165,7 @@ while(time<endtime)
   v = PTR *(BLA*vRed);
   a = PTR *(BLA*aRed);
 
-  std::cout<<potentialEnergy(t,geoMat)<< "   "<<kineticEnergy(v,geoMat)<<"    "<<time<< "      "<<potentialEnergy(t,geoMat)+kineticEnergy(v,geoMat)<< '\n';
+
   time+=deltat;
 }
 
