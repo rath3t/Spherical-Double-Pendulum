@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 
 message("Using Eigen...")
-SET( EIGEN3_INCLUDE_DIR "eigen3" )
+SET( EIGEN3_INCLUDE_DIR "src/eigen3" )
 IF( NOT EIGEN3_INCLUDE_DIR )
     MESSAGE( FATAL_ERROR "Please point the environment variable EIGEN3_INCLUDE_DIR to the include directory of your Eigen3 installation.")
 ENDIF()

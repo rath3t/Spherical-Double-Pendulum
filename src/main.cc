@@ -1,6 +1,6 @@
 #include <Eigen/Core>
 #include <Eigen/Dense>
-
+#include <vector>
 
 
 #include <iostream>
@@ -100,14 +100,14 @@ Eigen::Vector<double,6> gradientPotentialEnergy(const GeometryAndMaterial& geoMa
   return (Eigen::Vector<double,6>() << (geoMat.pointMasses(0)+geoMat.pointMasses(1))*geoMat.trussLength(0)*gravitation,geoMat.pointMasses(1)*geoMat.trussLength(2)*gravitation).finished();
 }
 
-int main() {
+std::vector<double> update() {
 
-double time =0.0;
-int  timesteps =100;
-double deltat =  0.005;
-
-double   endtime =  timesteps*deltat;
-double gamma = 1.5; //Chung Lee time integration
+  double time =0.0;
+  int  timesteps =100;
+  double deltat =  0.005;
+  
+  double   endtime =  timesteps*deltat;
+  double gamma = 1.5; //Chung Lee time integration
   double beta = 1.5;
   double a0 = 0.0; //how much damping
 
@@ -123,51 +123,57 @@ double gamma = 1.5; //Chung Lee time integration
   Eigen::Vector<double,6> t;
   t << 1.0,1.0,1.0,     1.0,2.0,8.0;
 
-t.col(0).normalize();
-t.col(1).normalize();
+  t.col(0).normalize();
+  t.col(1).normalize();
 
   Eigen::Vector<double,6> v = Eigen::Vector<double,6>::Zero();
   Eigen::Vector<double,6> a  = Eigen::Vector<double,6>::Zero();
 
 
-const Eigen::Matrix<double,6,6> M = massMatrix(geoMat);
-const Eigen::Matrix<double,6,6> C = a0*M; //Mass propertional damping matrix
-
-//time integration
-
-while(time<endtime)
-{
-  const Eigen::Matrix<double,6,4> BLA = createLargeTangentBase(t);
-  const Eigen::Matrix4d Mred = BLA.transpose()*M*BLA;
-  const Eigen::Vector<double,6> velocityTerm = velocityTerms(t,v,geoMat);
-  const Eigen::Vector<double,6> rhs = -C*v-velocityTerm+gradientPotentialEnergy(geoMat);
-  const Eigen::Vector<double,4> rhsRed = BLA.transpose()*rhs;
-
-  const Eigen::Vector<double,4> aRedn = BLA.transpose()*a;
-  const Eigen::Vector<double,4> aRed = Mred.inverse()*rhsRed ;
-
-  const Eigen::Vector<double,4> vRedn = BLA.transpose()*v;
-
-  const Eigen::Vector<double,4> vRed = vRedn+ deltat*((1-gamma)*aRedn+gamma*aRed) ;
-
-
-  const Eigen::Vector<double,4> deltaVec2d = deltat* vRedn + deltat*deltat*((0.5-beta)*aRedn+beta*aRed);
-  const Eigen::Vector<double,6> deltaVec3d = BLA*deltaVec2d;
-
-  const Eigen::Vector<double,6> tn = t;
-  t.segment<3>(0) = retraction(t.segment<3>(0),deltaVec3d.segment<3>(0));
-  t.segment<3>(3) = retraction(t.segment<3>(3),deltaVec3d.segment<3>(3));
-
-
-  const Eigen::Matrix<double,6,6> PTR = rotationMatrixfromtwoVectorsLarge(tn,t);
-
-  v = PTR *(BLA*vRed);
-  a = PTR *(BLA*aRed);
-
-  std::cout<<potentialEnergy(t,geoMat)<< "   "<<kineticEnergy(v,geoMat)<<"    "<<time<< "      "<<potentialEnergy(t,geoMat)+kineticEnergy(v,geoMat)<< '\n';
-  time+=deltat;
+  const Eigen::Matrix<double,6,6> M = massMatrix(geoMat);
+  const Eigen::Matrix<double,6,6> C = a0*M; //Mass propertional damping matrix
+  
+  //time integration
+  
+  //while(time<endtime)
+  //{
+    const Eigen::Matrix<double,6,4> BLA = createLargeTangentBase(t);
+    const Eigen::Matrix4d Mred = BLA.transpose()*M*BLA;
+    const Eigen::Vector<double,6> velocityTerm = velocityTerms(t,v,geoMat);
+    const Eigen::Vector<double,6> rhs = -C*v-velocityTerm+gradientPotentialEnergy(geoMat);
+    const Eigen::Vector<double,4> rhsRed = BLA.transpose()*rhs;
+  
+    const Eigen::Vector<double,4> aRedn = BLA.transpose()*a;
+    const Eigen::Vector<double,4> aRed = Mred.inverse()*rhsRed ;
+  
+    const Eigen::Vector<double,4> vRedn = BLA.transpose()*v;
+  
+    const Eigen::Vector<double,4> vRed = vRedn+ deltat*((1-gamma)*aRedn+gamma*aRed) ;
+  
+  
+    const Eigen::Vector<double,4> deltaVec2d = deltat* vRedn + deltat*deltat*((0.5-beta)*aRedn+beta*aRed);
+    const Eigen::Vector<double,6> deltaVec3d = BLA*deltaVec2d;
+  
+    const Eigen::Vector<double,6> tn = t;
+    t.segment<3>(0) = retraction(t.segment<3>(0),deltaVec3d.segment<3>(0));
+    t.segment<3>(3) = retraction(t.segment<3>(3),deltaVec3d.segment<3>(3));
+  
+  
+    const Eigen::Matrix<double,6,6> PTR = rotationMatrixfromtwoVectorsLarge(tn,t);
+  
+    v = PTR *(BLA*vRed);
+    a = PTR *(BLA*aRed);
+  
+    //std::cout<<potentialEnergy(t,geoMat)<< "   "<<kineticEnergy(v,geoMat)<<"    "<<time<< "      "<<potentialEnergy(t,geoMat)+kineticEnergy(v,geoMat)<< '\n';
+    //time+=deltat;
+  //}
+  
+    std::vector<double> out(t.data(), t.data() + t.rows() * t.cols());
+    return out;
 }
 
-
-return 0;
+#include <emscripten/bind.h>
+EMSCRIPTEN_BINDINGS(main) {
+    emscripten::function("update", &update);
+    emscripten::register_vector<double>("vector<double>");
 }
